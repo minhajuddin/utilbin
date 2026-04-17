@@ -1,0 +1,47 @@
+version: 2
+project_name: utilbin
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: utilbin
+    main: .
+    binary: utilbin
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+
+archives:
+  - id: utilbin
+    name_template: "utilbin_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE*
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+release:
+  github:
+    owner: minhajuddin
+    name: utilbin
+  draft: false
+  prerelease: auto
