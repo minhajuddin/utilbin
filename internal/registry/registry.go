@@ -17,8 +17,12 @@ var entries []Entry
 
 // Register adds a primary sub-command. It becomes both a top-level subcommand
 // on Root (so `utilbin <name>` works) and a symlink target under that name
-// plus any aliases.
+// plus any aliases. Aliases are also wired into cobra so `utilbin <alias>`
+// works the same as `utilbin <name>`.
 func Register(name string, aliases []string, cmd *cobra.Command) {
+	if len(aliases) > 0 {
+		cmd.Aliases = append(cmd.Aliases, aliases...)
+	}
 	entries = append(entries, Entry{Name: name, Aliases: aliases, Cmd: cmd, Standalone: true})
 }
 
