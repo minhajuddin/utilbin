@@ -61,6 +61,11 @@ release adds new command names.`,
 					return err
 				}
 			}
+			if !uninstall {
+				if err := pruneStale(linkDir, self, names, dryRun, out); err != nil {
+					return err
+				}
+			}
 			return nil
 		},
 	}
@@ -68,7 +73,7 @@ release adds new command names.`,
 	cmd.Flags().BoolVar(&uninstall, "uninstall", false, "remove symlinks instead of creating them")
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite/remove non-symlink entries too (dangerous)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print actions without touching the filesystem")
-	registry.Register("install", nil, cmd)
+	registry.RegisterMeta("install", cmd)
 }
 
 func defaultLinkDir() (string, error) {
@@ -121,6 +126,44 @@ func linkOne(target, self string, force, dryRun bool, out interface{ Write([]byt
 		return err
 	}
 	fmt.Fprintf(out, "linked: %s -> %s\n", target, self)
+	return nil
+}
+
+// pruneStale removes any symlink in linkDir that points at our binary but
+// is no longer in the keep set. This auto-heals after a release renames or
+// removes a command — without it, old symlinks would silently keep dispatching
+// (sometimes shadowing system commands of the same name).
+func pruneStale(linkDir, self string, keep []string, dryRun bool, out interface{ Write([]byte) (int, error) }) error {
+	want := make(map[string]bool, len(keep))
+	for _, n := range keep {
+		want[n] = true
+	}
+	dents, err := os.ReadDir(linkDir)
+	if err != nil {
+		return err
+	}
+	for _, d := range dents {
+		if want[d.Name()] {
+			continue
+		}
+		target := filepath.Join(linkDir, d.Name())
+		info, err := os.Lstat(target)
+		if err != nil || info.Mode()&os.ModeSymlink == 0 {
+			continue
+		}
+		cur, err := os.Readlink(target)
+		if err != nil || cur != self {
+			continue
+		}
+		if dryRun {
+			fmt.Fprintf(out, "would prune stale: %s\n", target)
+			continue
+		}
+		if err := os.Remove(target); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "pruned stale: %s\n", target)
+	}
 	return nil
 }
 

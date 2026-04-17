@@ -10,6 +10,7 @@ type Entry struct {
 	Aliases    []string
 	Cmd        *cobra.Command
 	Standalone bool // attach as a top-level subcommand of Root?
+	NoSymlink  bool // skip symlink creation (meta commands like install/update)
 }
 
 var entries []Entry
@@ -29,17 +30,27 @@ func RegisterShim(name string, cmd *cobra.Command) {
 	entries = append(entries, Entry{Name: name, Cmd: cmd, Standalone: false})
 }
 
+// RegisterMeta adds a top-level subcommand that is reachable only as
+// `utilbin <name>`. No symlink is created, so common names like `install` and
+// `update` don't shadow system binaries on PATH.
+func RegisterMeta(name string, cmd *cobra.Command) {
+	entries = append(entries, Entry{Name: name, Cmd: cmd, Standalone: true, NoSymlink: true})
+}
+
 func All() []Entry {
 	out := make([]Entry, len(entries))
 	copy(out, entries)
 	return out
 }
 
-// Names returns every registered name plus every alias. Used by
-// `utilbin install` to know what symlinks to create.
+// Names returns every registered name plus every alias, omitting NoSymlink
+// entries. Used by `utilbin install` to decide what symlinks to create.
 func Names() []string {
 	var names []string
 	for _, e := range entries {
+		if e.NoSymlink {
+			continue
+		}
 		names = append(names, e.Name)
 		names = append(names, e.Aliases...)
 	}

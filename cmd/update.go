@@ -31,5 +31,5 @@ func init() {
 	}
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "report if a new version exists, don't install")
 	cmd.Flags().BoolVar(&force, "force", false, "install latest even if it matches the running version")
-	registry.Register("update", nil, cmd)
+	registry.RegisterMeta("update", cmd)
 }
